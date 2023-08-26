@@ -36,7 +36,7 @@ static u32 GetByte(u32 buffer, u32 byteIndex)
 
 }
 
-// (CAIO) This function prints a buffer in binary.. It first inverts to the same order as the commands
+// (CAIO) This function prints a buffer in binary.. It first inverts to the same order as the comands
 //  it also takes the number of bytes to print
 static void PrintBinary(u32 buffer, u32 numberBytes)
 {   
@@ -61,55 +61,116 @@ static void PrintBinary(u32 buffer, u32 numberBytes)
     }
 }
 
-static void CheckFirstByte(u32 Command)
-{
-    switch (Command)
-    {
-    case (0b100010):
-    {
-        printf("mov");
-    }
-        break;
-    
-    default:
-        break;
-    }
+typedef struct
+ {
+    u32 OPCODE;
+    u32 D;
+    u32 W;
+
+} FirstByte;
+
+typedef struct
+ {
+    u32 MOD;
+    u32 REG;
+    u32 RM;
+
+} SecondByte;
+
+static FirstByte CheckFirstByte(u32 byte)
+{   
+    FirstByte Commands;
+    Commands.OPCODE = ((byte>>2)&0b00111111); 
+    Commands.D = (byte>>1)&0b00000001;
+    Commands.W = (byte&0b00000001);
+
+    return Commands;
+}
+
+static SecondByte CheckSecondByte(u32 byte)
+{   
+    SecondByte Commands;
+    Commands.MOD = (byte>>6)&0b00000011;
+    Commands.REG = (byte>>3)&0b00000111;
+    Commands.RM = (byte)&0b00000111;
+
+    return Commands;
 }
 
 int main(int ArgCount, char **Args)
 {
     const char *FileName = "listing_0037_single_register_mov.txt";
-    char Commands[1][4] = {"mov"};
     u32 Buffer[100] = {};
     u32 Elements = 2;
     u32 BytesRead = LoadMemoryFromFile(FileName, Buffer, Elements);
 
-    printf("Bytes read: %u\n", BytesRead);
+    printf("Bytes read: %u\n", BytesRead); 
     printf("File content:\n");
     u32 NumberOfLines = (u32)ceil((float)(Elements*8)/32);
     for (u32 i = 0; i<NumberOfLines; ++i)
     {
-        for (u32 byteIndex = 0; byteIndex < 2; ++byteIndex)
-        {   
-            u32 byte = GetByte(Buffer[i], byteIndex);
+        u32 byte1 = GetByte(Buffer[i], 0);
+        u32 byte2 = GetByte(Buffer[i], 1);
+        u32 byte3 = GetByte(Buffer[i], 2);
+        u32 byte4 = GetByte(Buffer[i], 3);
 
-            if (byteIndex == 0)
-            {
-                u32 OPCODE = ((byte>>2)&0b00111111);
-                u32 D = (byte>>1)&0b00000001;
-                u32 W = (byte&0b00000001);
+        FirstByte FirstByteCommands = CheckFirstByte(byte1);
+        SecondByte SecondByteCommands = CheckSecondByte(byte2);
 
-                CheckFirstByte(OPCODE);
-            }
+        if (FirstByteCommands.OPCODE == 0b00100010)
+        {
+            printf("mov ");
 
-            if (byteIndex == 1)
-            {
-                u32 MOD = (byte>>6)&0b00000011;
-                u32 REG = (byte>>3)&0b00000111;
-                u32 RM = (byte)&0b00000111;
-            }
-
+            if (FirstByteCommands.D == 0) // SOURCE = REG
+                switch (SecondByteCommands.RM)
+                {
+                case (0b000):
+                {
+                    printf("ax, ");
+                }
+                break;
+                case (0b001):
+                {
+                    printf("cx, ");
+                }
+                break;
+                case (0b010):
+                {
+                    printf("dx, ");
+                }
+                break;
+                case (0b011):
+                {
+                    printf("bx, ");
+                }
+                break;
+                }
+                switch (SecondByteCommands.REG)
+                {
+                case (0b000):
+                {
+                    printf("ax");
+                }
+                break;
+                case (0b001):
+                {
+                    printf("cx");
+                }
+                break;
+                case (0b010):
+                {
+                    printf("dx");
+                }
+                break;
+                case (0b011):
+                {
+                    printf("bx");
+                }
+                break;
+                }
         }
+
+
         printf("\n");
         PrintBinary(Buffer[i],2);
     }
@@ -118,6 +179,9 @@ int main(int ArgCount, char **Args)
     return 0;
 }
 
+// Function to check commands of first byte
+
+//COMAND DW MOD REG RM
 /*
 REG W=0 W=1
 000 AL  AX
